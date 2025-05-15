@@ -49,6 +49,21 @@ func CreateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if newProduct.Name == "" {
+		http.Error(w, "Nome do produto não foi informado.", http.StatusBadRequest)
+		return
+	}
+
+	if newProduct.Price <= 0 {
+		http.Error(w, "Preço do produto não foi informado.", http.StatusBadRequest)
+		return
+	}
+
+	if newProduct.Quantity <= 0 {
+		http.Error(w, "Quantidade do produto não foi informada.", http.StatusBadRequest)
+		return
+	}
+
 	newProduct.ID = len(storage.Products) + 1
 	storage.Products = append(storage.Products, newProduct)
 	w.Header().Set("Content-Type", "application/json")
@@ -72,16 +87,50 @@ func UpdateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	found := false
+	updated := false
+	var existingProduct models.Product
+
 	for i, product := range storage.Products {
 		if product.ID == id {
-			updatedProduct.ID = id
-			storage.Products[i] = updatedProduct
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(updatedProduct)
-			return
+			found = true
+			existingProduct = product
+
+			if updatedProduct.Name != "" && updatedProduct.Name != existingProduct.Name {
+				storage.Products[i].Name = updatedProduct.Name
+				updated = true
+			}
+			if updatedProduct.Description != "" && updatedProduct.Description != existingProduct.Description {
+				storage.Products[i].Description = updatedProduct.Description
+				updated = true
+			}
+			if updatedProduct.Price > 0 && updatedProduct.Price != existingProduct.Price {
+				storage.Products[i].Price = updatedProduct.Price
+				updated = true
+			}
+			if updatedProduct.Quantity > 0 && updatedProduct.Quantity != existingProduct.Quantity {
+				storage.Products[i].Quantity = updatedProduct.Quantity
+				updated = true
+			}
+
+			if updated {
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(storage.Products[i])
+				return
+			}
+			break
 		}
 	}
-	http.Error(w, "Produto não encontrado", http.StatusNotFound)
+
+	if found && !updated {
+		http.Error(w, "Nenhum dado foi alterado.", http.StatusOK)
+		return
+	}
+
+	if !found {
+		http.Error(w, "Produto não encontrado", http.StatusNotFound)
+		return
+	}
 }
 
 func DeleteProduct(w http.ResponseWriter, r *http.Request) {
