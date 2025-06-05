@@ -3,11 +3,10 @@ package handlers
 import (
 	"encoding/json"
 	"log"
-	"net/http"
-	"strconv"
-
 	"minha-api-go/models"
 	"minha-api-go/storage"
+	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 )
@@ -19,7 +18,13 @@ func HandleRoot(w http.ResponseWriter, r *http.Request) {
 
 func GetProducts(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(storage.Products)
+
+	products, err := storage.GetProducts()
+	if err != nil {
+		http.Error(w, "Erro ao buscar produtos", http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(products)
 }
 
 func GetProductByID(w http.ResponseWriter, r *http.Request) {
@@ -30,14 +35,13 @@ func GetProductByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for _, product := range storage.Products {
-		if product.ID == id {
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(product)
-			return
-		}
+	product, err := storage.GetProductByID(id)
+	if err != nil {
+		http.Error(w, "Produto não encontrado", http.StatusNotFound)
+		return
 	}
-	http.Error(w, "Produto não encontrado", http.StatusNotFound)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(product)
 }
 
 func CreateProduct(w http.ResponseWriter, r *http.Request) {
@@ -64,8 +68,10 @@ func CreateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newProduct.ID = len(storage.Products) + 1
-	storage.Products = append(storage.Products, newProduct)
+	if err := storage.CreateProduct(&newProduct); err != nil {
+		http.Error(w, "Erro ao criar produto", http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(newProduct)
@@ -79,58 +85,40 @@ func UpdateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var updatedProduct models.Product
-	err = json.NewDecoder(r.Body).Decode(&updatedProduct)
+	existingProduct, err := storage.GetProductByID(id)
 	if err != nil {
-		log.Printf("Erro ao decodificar: %v", err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	found := false
-	updated := false
-	var existingProduct models.Product
-
-	for i, product := range storage.Products {
-		if product.ID == id {
-			found = true
-			existingProduct = product
-
-			if updatedProduct.Name != "" && updatedProduct.Name != existingProduct.Name {
-				storage.Products[i].Name = updatedProduct.Name
-				updated = true
-			}
-			if updatedProduct.Description != "" && updatedProduct.Description != existingProduct.Description {
-				storage.Products[i].Description = updatedProduct.Description
-				updated = true
-			}
-			if updatedProduct.Price > 0 && updatedProduct.Price != existingProduct.Price {
-				storage.Products[i].Price = updatedProduct.Price
-				updated = true
-			}
-			if updatedProduct.Quantity > 0 && updatedProduct.Quantity != existingProduct.Quantity {
-				storage.Products[i].Quantity = updatedProduct.Quantity
-				updated = true
-			}
-
-			if updated {
-				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(storage.Products[i])
-				return
-			}
-			break
-		}
-	}
-
-	if found && !updated {
-		http.Error(w, "Nenhum dado foi alterado.", http.StatusOK)
-		return
-	}
-
-	if !found {
 		http.Error(w, "Produto não encontrado", http.StatusNotFound)
 		return
 	}
+
+	var updatedProduct models.Product
+	err = json.NewDecoder(r.Body).Decode(&updatedProduct)
+	if err != nil {
+		http.Error(w, "Erro ao decodificar JSON", http.StatusBadRequest)
+		return
+	}
+
+	if updatedProduct.Name != "" {
+		existingProduct.Name = updatedProduct.Name
+	}
+	if updatedProduct.Description != "" {
+		existingProduct.Description = updatedProduct.Description
+	}
+	if updatedProduct.Price > 0 {
+		existingProduct.Price = updatedProduct.Price
+	}
+	if updatedProduct.Quantity > 0 {
+		existingProduct.Quantity = updatedProduct.Quantity
+	}
+
+	err = storage.UpdateProduct(existingProduct)
+	if err != nil {
+		http.Error(w, "Erro ao atualizar produto", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(existingProduct)
 }
 
 func DeleteProduct(w http.ResponseWriter, r *http.Request) {
@@ -141,12 +129,15 @@ func DeleteProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for i, product := range storage.Products {
-		if product.ID == id {
-			storage.Products = append(storage.Products[:i], storage.Products[i+1:]...)
-			w.WriteHeader(http.StatusNoContent)
-			return
+	err = storage.DeleteProduct(id)
+	if err != nil {
+		if err.Error() == "produto não encontrado" {
+			http.Error(w, err.Error(), http.StatusNotFound)
+		} else {
+			http.Error(w, "Erro ao deletar produto", http.StatusInternalServerError)
 		}
+		return
 	}
-	http.Error(w, "Produto não encontrado", http.StatusNotFound)
+
+	w.WriteHeader(http.StatusNoContent)
 }

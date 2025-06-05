@@ -4,12 +4,15 @@ import (
 	"log"
 	"net/http"
 
+	"minha-api-go/database"
 	"minha-api-go/routes"
 
 	"github.com/gorilla/mux"
 )
 
 func main() {
+	database.Connect()
+
 	r := mux.NewRouter()
 	routes.RegisterProductRoutes(r)
 
