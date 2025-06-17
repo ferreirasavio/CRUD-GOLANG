@@ -7,3 +7,9 @@ type Product struct {
 	Quantity    int     `json:"quantity"`
 	Description string  `json:"description"`
 }
+
+type PaginatedProducts struct {
+	Page    int       `json:"page"`
+	PerPage int       `json:"per_page"`
+	Items   []Product `json:"items"`
+}
