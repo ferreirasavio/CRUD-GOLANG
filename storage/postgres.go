@@ -7,8 +7,9 @@ import (
 	"minha-api-go/models"
 )
 
-func GetProducts() ([]models.Product, error) {
-	rows, err := database.DB.Query(context.Background(), "SELECT id, name, description, price, quantity FROM products")
+func GetProducts(page, limit int) ([]models.Product, error) {
+	offset := (page - 1) * limit
+	rows, err := database.DB.Query(context.Background(), "SELECT id, name, description, price, quantity FROM products ORDER BY id LIMIT $1 OFFSET $2", limit, offset)
 	if err != nil {
 		return nil, err
 	}

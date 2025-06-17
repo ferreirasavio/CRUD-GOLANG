@@ -16,15 +16,35 @@ func HandleRoot(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Bem-vindo à API de produtos!"))
 }
 
-func GetProducts(w http.ResponseWriter, _ *http.Request) {
+func GetProducts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	products, err := storage.GetProducts()
+	page := 1
+	limit := 10
+
+	if p := r.URL.Query().Get("page"); p != "" {
+		if v, err := strconv.Atoi(p); err == nil && v > 0 {
+			page = v
+		}
+	}
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if v, err := strconv.Atoi(l); err == nil && v > 0 {
+			limit = v
+		}
+	}
+
+	products, err := storage.GetProducts(page, limit)
 	if err != nil {
 		http.Error(w, "Erro ao buscar produtos", http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(products)
+
+	response := models.PaginatedProducts{
+		Page:    page,
+		PerPage: limit,
+		Items:   products,
+	}
+	json.NewEncoder(w).Encode(response)
 }
 
 func GetProductByID(w http.ResponseWriter, r *http.Request) {
