@@ -12,7 +12,6 @@ import (
 )
 
 func main() {
-	log.Println("DATABASE_URL =", os.Getenv("DATABASE_URL"))
 	database.Connect()
 
 	port := os.Getenv("PORT")
