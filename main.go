@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"minha-api-go/database"
 	"minha-api-go/routes"
@@ -13,9 +14,14 @@ import (
 func main() {
 	database.Connect()
 
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "3030"
+	}
+
 	r := mux.NewRouter()
 	routes.RegisterProductRoutes(r)
 
-	log.Println("Servidor rodando em http://localhost:3030")
-	log.Fatal(http.ListenAndServe(":3030", r))
+	log.Printf("Servidor rodando na porta %s", port)
+	log.Fatal(http.ListenAndServe(":"+port, r))
 }
