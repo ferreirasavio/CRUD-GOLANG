@@ -12,9 +12,11 @@ import (
 var DB *pgxpool.Pool
 
 func Connect() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Println("Aviso: não foi possível carregar o arquivo .env")
+	env := os.Getenv("ENV")
+	if env == "" || env == "local" {
+		if err := godotenv.Load(); err != nil {
+			log.Println("Aviso: não foi possível carregar o arquivo .env")
+		}
 	}
 
 	dsn := os.Getenv("DATABASE_URL")
@@ -23,6 +25,7 @@ func Connect() {
 		log.Fatal("DATABASE_URL não definida")
 	}
 
+	var err error
 	DB, err = pgxpool.New(context.Background(), dsn)
 	if err != nil {
 		log.Fatalf("Erro ao conectar ao banco de dados: %v", err)
